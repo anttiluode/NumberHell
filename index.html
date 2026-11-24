@@ -1,0 +1,256 @@
+<title>Number Hell</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="One vector of 256 numbers that reads itself through chessboards at every zoom level and rewrites itself with what it read.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* A single committed look: a dark furnace. Ember marks the head and what it reads. */
+:root {
+  color-scheme: dark;
+  --bg: #0d0b0a; --panel: #161211; --line: #2c2421; --ink: #efe6df; --muted: #9c8f86;
+  --pos: #f08a3c; --neg: #4fa3c7; --head: #ffcf5c; --hot: #ff5a36; --ok: #7fd18b;
+  --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --text: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font: 1rem/1.6 var(--text);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 2rem 4rem;
+}
+.page { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2rem; }
+.page > *, .grid > *, .panel > * { min-width: 0; }
+h1 { font: 900 clamp(2.6rem, 8vw, 5rem)/0.95 var(--display); letter-spacing: 0.01em; margin: 0; text-transform: uppercase; }
+h1 span { color: var(--hot); }
+h2 { font: 700 1.5rem/1.1 var(--display); text-transform: uppercase; letter-spacing: 0.03em; margin: 0; }
+p { margin: 0; max-width: 68ch; }
+.lede { font-size: 1.12rem; color: var(--ink); }
+.muted { color: var(--muted); }
+.mono { font-family: var(--mono); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; display: grid; gap: 0.75rem; }
+.label { font: 600 0.72rem/1.2 var(--mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+canvas { display: block; width: 100%; max-width: 100%; touch-action: none; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+.controls { display: flex; flex-wrap: wrap; gap: 0.6rem 1.4rem; align-items: end; }
+.ctl { display: grid; gap: 0.2rem; }
+.ctl label { font: 0.74rem var(--mono); color: var(--muted); }
+.ctl output { font: 0.82rem var(--mono); font-variant-numeric: tabular-nums; }
+input[type=range] { width: min(180px, 60vw); accent-color: var(--hot); }
+button {
+  font: 600 0.82rem/1 var(--mono); color: var(--ink); background: transparent; border: 1px solid var(--line);
+  border-radius: 4px; padding: 0.55rem 0.8rem; cursor: pointer;
+}
+button:hover { border-color: var(--muted); }
+button[aria-pressed=true] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+:focus-visible { outline: 2px solid var(--head); outline-offset: 2px; }
+.row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.tree { display: grid; gap: 4px; font: 0.76rem var(--mono); }
+.lvl { display: grid; grid-template-columns: 7.2rem 1fr 1fr; gap: 6px; align-items: center; }
+.bar { height: 14px; background: #241c19; border-radius: 2px; position: relative; overflow: hidden; }
+.bar i { position: absolute; inset: 0 auto 0 0; background: var(--muted); opacity: 0.55; }
+.bar.pick i { background: var(--head); opacity: 1; }
+.readout { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem 1rem; }
+.cell { border-top: 1px solid var(--line); padding-top: 0.4rem; }
+.cell .k { font: 0.7rem var(--mono); color: var(--muted); }
+.cell .v { font: 600 1.05rem var(--mono); font-variant-numeric: tabular-nums; }
+.bits { font: 600 1.05rem var(--mono); letter-spacing: 0.12em; }
+.bits b { color: var(--head); }
+table { border-collapse: collapse; font: 0.82rem var(--mono); }
+td, th { padding: 0.3rem 0.8rem 0.3rem 0; text-align: right; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 400; }
+td:first-child, th:first-child { text-align: left; }
+.scroll { overflow-x: auto; }
+ul { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.4rem; max-width: 70ch; }
+footer { font: 0.76rem var(--mono); color: var(--muted); border-top: 1px solid var(--line); padding-top: 1rem; overflow-wrap: anywhere; }
+</style>
+
+<div class="page">
+<header style="display:grid;gap:0.9rem">
+  <div class="label">anttiluode / NumberHell · a toy, not a claim</div>
+  <h1>Number <span>Hell</span></h1>
+  <p class="lede">One vector of 256 numbers that reads itself. Its position numbers are 8 bits, so it has 8 one-dimensional chessboards, with squares of size 1, 2, 4 … 128. Multiplying chessboards gives every one of its 256 patterns. A head walks down the zoom levels to find the pattern the vector is loudest in, and the vector is rewritten by what the head found.</p>
+</header>
+
+<section class="panel">
+  <div class="controls">
+    <button id="run" type="button" aria-pressed="true">running</button>
+    <button id="step" type="button">step</button>
+    <button id="reset" type="button">new vector</button>
+    <div class="ctl"><label>who picks the board</label><div class="row"><button id="rSelf" type="button" aria-pressed="true">the head</button><button id="rRand" type="button" aria-pressed="false">random</button></div></div>
+    <div class="ctl"><label for="cE">mix ε</label><div class="row"><input id="cE" type="range" min="0.05" max="0.95" step="0.05" value="0.5"><output id="oE"></output></div></div>
+    <div class="ctl"><label for="cG">gain</label><div class="row"><input id="cG" type="range" min="0.5" max="4" step="0.1" value="1"><output id="oG"></output></div></div>
+    <div class="ctl"><label for="cN">noise</label><div class="row"><input id="cN" type="range" min="0" max="0.2" step="0.005" value="0.01"><output id="oN"></output></div></div>
+  </div>
+  <div class="label">The vector · drag across it to disturb</div>
+  <canvas id="cv" height="150" aria-label="The 256 numbers as bars; drag to push them up or down"></canvas>
+  <div class="label">The board the head is reading</div>
+  <canvas id="cb" height="26" aria-label="The chosen chessboard pattern, light for +1 and dark for −1"></canvas>
+  <div class="readout" id="ro"></div>
+</section>
+
+<div class="grid">
+  <section class="panel">
+    <div class="label">The head's walk down the zoom levels</div>
+    <div class="tree" id="tree"></div>
+    <p class="muted" style="font-size:.88rem">At level k the vector is cut into coarse blocks of 2^k fine numbers. Each fine block is multiplied by a small chessboard and summed; the squares add up to the energy of a whole family of patterns. The head keeps the louder of two families, 2 readings per level, 16 per tick, instead of checking all 256 patterns.</p>
+  </section>
+  <section class="panel">
+    <div class="label">All 256 patterns · energy now</div>
+    <canvas id="cs" height="160" aria-label="Energy in each of the 256 chessboard patterns"></canvas>
+    <p class="muted" style="font-size:.88rem">Yellow: the pattern the head picked. Red: the two loudest patterns p and q, and green their product p⊕q (multiply the boards, XOR the bits). The rule multiplies the vector by a shifted copy of itself, and multiplying chessboards makes new chessboards, so loud patterns tend to come in closed families.</p>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="label">History · each column is one tick, each row one bit of the chosen board (square size 1 at top)</div>
+  <canvas id="ch" height="96" aria-label="Bits of the chosen board over the last ticks"></canvas>
+  <p class="muted" style="font-size:.88rem">A board held for many ticks shows as flat stripes, a two-board alternation as a fine weave, wandering as noise. Which you get depends on ε, gain and who picks.</p>
+</section>
+
+<section style="display:grid;gap:0.9rem">
+  <h2>The rule</h2>
+  <p>Each tick the head picks a board <span class="mono">a</span> (8 bits). Then every number is mixed with its product with its partner at position <span class="mono">i XOR a</span>, the number the board pairs it with:</p>
+  <div class="panel mono scroll" style="font-size:.9rem;white-space:pre">x[i] ← (1−ε)·x[i] + ε·tanh( gain · x[i] · x[i XOR a] ) + noise
+then subtract the mean (the flat board) and rescale to RMS 1</div>
+  <p>So the vector chooses the address it reads, and what it reads changes the vector that will choose the next address: x<sub>next</sub> = W(x)·x, where W is built from the vector itself. Nothing is learned and nothing is stored except the 256 numbers.</p>
+</section>
+
+<section style="display:grid;gap:0.9rem">
+  <h2>What was measured</h2>
+  <p>Offline, in Python, with the same rule: 30 random starts per row, 400 ticks each, then the share of the vector’s energy in the closed family {p, q, p⊕q} of its two loudest patterns. A random vector puts about 0.4% of its energy in each pattern, so about 1.2% in any three.</p>
+  <div class="scroll"><table>
+    <tr><th>ε</th><th>gain</th><th>head picks</th><th>random picks</th></tr>
+    <tr><td>0.2</td><td>1</td><td>0.127</td><td>0.072</td></tr>
+    <tr><td>0.5</td><td>1</td><td>0.163</td><td>0.072</td></tr>
+    <tr><td>0.5</td><td>3</td><td>0.184</td><td>0.081</td></tr>
+    <tr><td>0.9</td><td>1</td><td>0.515</td><td>0.376</td></tr>
+    <tr><td>0.9</td><td>3</td><td>0.433</td><td>0.607</td></tr>
+  </table></div>
+  <ul>
+    <li>Closed families come from the product rule itself. They appear with random boards too.</li>
+    <li>Letting the head pick roughly doubles the concentration at moderate mixing. At the strongest setting random picking concentrates more. So self-reading changes the dynamics; it is not simply better.</li>
+    <li>Without subtracting the mean the loop collapses onto the flat board in every run: a number times itself is never negative.</li>
+  </ul>
+</section>
+
+<section style="display:grid;gap:0.9rem">
+  <h2>What this is not</h2>
+  <ul>
+    <li>Not new mathematics. The 8 chessboards are Rademacher functions and their products Walsh functions. The tree walk is the search of Goldreich–Levin (1989) and Kushilevitz–Mansour (1991), here greedy and fed back into the signal. A matrix built from the state is what attention does.</li>
+    <li>Not a learner and not a benchmark. It is a dynamical toy for watching a vector reorganise how it is read.</li>
+    <li>Not covered by the VP ≠ VNP paper. Each zoom level is a cut of the 8 bits, the kind of cut that paper prices, but choosing the board from the state is branching, and the paper is about polynomial circuits without it.</li>
+  </ul>
+</section>
+
+<footer>Built by Claude (Opus 5.5) for anttiluode/NumberHell, from the 1D-chessboard idea of 24 Nov 2026. Everything runs in your browser; no data leaves the page.</footer>
+</div>
+
+<script>
+(function () {
+  const n = 8, N = 256, $ = (id) => document.getElementById(id);
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const C = { pos: css("--pos"), neg: css("--neg"), head: css("--head"), hot: css("--hot"), ok: css("--ok"), muted: css("--muted"), line: css("--line"), ink: css("--ink") };
+  let seed = 7;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-12)) * Math.cos(2 * Math.PI * rnd());
+  const popSign = (v) => { let s = 0; while (v) { s ^= v & 1; v >>= 1; } return s ? -1 : 1; };
+  let x = new Float64Array(N), a = 1, levels = [], hist = [], self = true, running = true;
+  function normalise() {
+    let m = 0; for (let i = 0; i < N; i++) m += x[i]; m /= N;
+    let s = 0; for (let i = 0; i < N; i++) { x[i] -= m; s += x[i] * x[i]; }
+    s = Math.sqrt(s / N) || 1; for (let i = 0; i < N; i++) x[i] /= s;
+  }
+  function fresh() { for (let i = 0; i < N; i++) x[i] = gauss(); normalise(); hist = []; head(); }
+  function energy(b, k) { // family of patterns whose low k bits equal b
+    const w = 1 << k, rows = N >> k; let e = 0;
+    for (let r = 0; r < rows; r++) { let s = 0; for (let j = 0; j < w; j++) s += x[r * w + j] * popSign(b & j); e += s * s; }
+    return e / w;
+  }
+  function head() {
+    let b = 0; levels = [];
+    for (let k = 1; k <= n; k++) {
+      const c0 = b, c1 = b | (1 << (k - 1)), e0 = energy(c0, k), e1 = energy(c1, k);
+      levels.push({ k, e0, e1, pick: e1 > e0 ? 1 : 0 });
+      b = e1 > e0 ? c1 : c0;
+    }
+    return b;
+  }
+  function walsh() { // fast Walsh–Hadamard, energies per pattern
+    const v = Float64Array.from(x);
+    for (let h = 1; h < N; h <<= 1) for (let i = 0; i < N; i += h << 1) for (let j = i; j < i + h; j++) { const p = v[j], q = v[j + h]; v[j] = p + q; v[j + h] = p - q; }
+    let t = 0; for (let i = 0; i < N; i++) { v[i] = v[i] * v[i] / N; t += v[i]; }
+    for (let i = 0; i < N; i++) v[i] /= t || 1; return v;
+  }
+  function tick() {
+    const hb = head();
+    a = self ? hb : 1 + Math.floor(rnd() * (N - 1));
+    const eps = +$("cE").value, g = +$("cG").value, nz = +$("cN").value, y = new Float64Array(N);
+    for (let i = 0; i < N; i++) y[i] = (1 - eps) * x[i] + eps * Math.tanh(g * x[i] * x[i ^ a]) + nz * gauss();
+    x = y; normalise(); head();
+    hist.push(a); if (hist.length > 400) hist.shift();
+  }
+  // ---------- drawing ----------
+  function fit(cv) {
+    const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = +cv.getAttribute("height");
+    if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h); return [g, w, h];
+  }
+  function draw() {
+    let [g, w, h] = fit($("cv"));
+    const bw = w / N, mid = h / 2;
+    g.strokeStyle = C.line; g.beginPath(); g.moveTo(0, mid); g.lineTo(w, mid); g.stroke();
+    for (let i = 0; i < N; i++) { const v = Math.max(-3, Math.min(3, x[i])) / 3 * (mid - 4); g.fillStyle = v >= 0 ? C.pos : C.neg; g.fillRect(i * bw, mid - Math.max(v, 0), Math.max(bw - 0.4, 0.6), Math.abs(v)); }
+    [g, w, h] = fit($("cb"));
+    for (let i = 0; i < N; i++) { g.fillStyle = popSign(a & i) > 0 ? C.ink : "#2a211e"; g.fillRect(i * w / N, 0, w / N + 0.5, h); }
+    const E = walsh(); let p = 1, q = 2; for (let i = 1; i < N; i++) { if (E[i] > E[p]) { q = p; p = i; } else if (i !== p && E[i] > E[q]) q = i; }
+    [g, w, h] = fit($("cs"));
+    let mx = 0; for (let i = 1; i < N; i++) mx = Math.max(mx, E[i]);
+    for (let i = 0; i < N; i++) {
+      g.fillStyle = i === a ? C.head : (i === p || i === q) ? C.hot : i === (p ^ q) ? C.ok : C.muted;
+      const v = (E[i] / (mx || 1)) * (h - 6); g.fillRect(i * w / N, h - v, Math.max(w / N - 0.5, 0.6), v);
+    }
+    [g, w, h] = fit($("ch"));
+    const cw = w / 400, rh = h / n;
+    hist.forEach((b, t) => { for (let j = 0; j < n; j++) if ((b >> j) & 1) { g.fillStyle = C.head; g.fillRect(t * cw, j * rh, cw + 0.4, rh - 1); } });
+    $("tree").innerHTML = levels.map((L) => {
+      const m = Math.max(L.e0, L.e1) || 1;
+      return `<div class="lvl"><span>blocks of ${1 << L.k}</span><div class="bar ${L.pick ? "" : "pick"}" title="${L.e0.toFixed(2)}"><i style="width:${(100 * L.e0 / m).toFixed(1)}%"></i></div><div class="bar ${L.pick ? "pick" : ""}" title="${L.e1.toFixed(2)}"><i style="width:${(100 * L.e1 / m).toFixed(1)}%"></i></div></div>`;
+    }).join("");
+    const bits = [...Array(n)].map((_, j) => ((a >> (n - 1 - j)) & 1 ? "<b>1</b>" : "0")).join("");
+    const sizes = [...Array(n)].map((_, j) => ((a >> j) & 1 ? 1 << j : null)).filter((v) => v).join(" × ");
+    const recent = hist.slice(-100), distinct = new Set(recent).size;
+    $("ro").innerHTML = [
+      ["board a, bits", `<span class="bits">${bits}</span>`],
+      ["made from square sizes", sizes || "–"],
+      ["energy in board a", (100 * E[a]).toFixed(1) + "%"],
+      ["closed family {p, q, p⊕q}", (100 * (E[p] + E[q] + E[p ^ q])).toFixed(1) + "%"],
+      ["distinct boards, last 100 ticks", recent.length ? distinct : "–"],
+    ].map(([k, v]) => `<div class="cell"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+    $("oE").textContent = (+$("cE").value).toFixed(2); $("oG").textContent = (+$("cG").value).toFixed(1); $("oN").textContent = (+$("cN").value).toFixed(3);
+  }
+  let last = 0;
+  function loop(t) { if (running && t - last > 90) { tick(); last = t; draw(); } requestAnimationFrame(loop); }
+  // ---------- input ----------
+  const cv = $("cv"); let drag = false;
+  function poke(ev) {
+    const r = cv.getBoundingClientRect(), i = Math.floor(((ev.clientX - r.left) / r.width) * N), v = (0.5 - (ev.clientY - r.top) / r.height) * 6;
+    for (let d = -3; d <= 3; d++) { const j = i + d; if (j >= 0 && j < N) x[j] = x[j] * 0.3 + v * 0.7 * Math.exp(-d * d / 4); }
+    normalise(); head(); draw();
+  }
+  cv.addEventListener("pointerdown", (e) => { drag = true; cv.setPointerCapture(e.pointerId); poke(e); });
+  cv.addEventListener("pointermove", (e) => { if (drag) poke(e); });
+  cv.addEventListener("pointerup", () => (drag = false));
+  $("run").addEventListener("click", () => { running = !running; $("run").setAttribute("aria-pressed", running); $("run").textContent = running ? "running" : "paused"; });
+  $("step").addEventListener("click", () => { tick(); draw(); });
+  $("reset").addEventListener("click", () => { seed = (Date.now() >>> 0) || 1; fresh(); draw(); });
+  const setRule = (s) => { self = s; $("rSelf").setAttribute("aria-pressed", s); $("rRand").setAttribute("aria-pressed", !s); hist = []; };
+  $("rSelf").addEventListener("click", () => setRule(true));
+  $("rRand").addEventListener("click", () => setRule(false));
+  for (const id of ["cE", "cG", "cN"]) $(id).addEventListener("input", draw);
+  window.addEventListener("resize", draw);
+  fresh(); draw(); requestAnimationFrame(loop);
+})();
+</script>
