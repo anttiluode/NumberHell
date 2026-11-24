@@ -50,6 +50,21 @@ Test: indices 128–255 are a world the rule cannot write (a slowly drifting ran
 - **The head does not help here.** A fixed wire gives the clearest image; letting the head move the wiring blurs it, and a blind head blurs it more. The "previous address" numbers are mostly the (1 − ε) fade of last tick's image.
 - The world is a one-way tape: the brain cannot push on it and feel it push back. This is a multiplicative gate, not a predictive or inverse model. (Earlier version of this section, corrected after Sol and Neon pointed out the peeking head and the missing fixed-wire control.)
 
+## Soar (`soar.html`)
+
+The head leaves the chessboard: a 16-number eye flies over a 64×64 world, seeing a 4×4 picture at any of 5 heights. It climbs when the view is flat, dives toward what stands out, eats sparkles at ground level. 12 worlds × 4,000 ticks (`sim/soar_bench.js`), about 250 sparkles per 1,000 ticks:
+
+| eye | eaten / 1000 ticks |
+|---|---:|
+| fixed wire (one ground window) | 1.0 ± 0.2 |
+| random flight | 27.3 ± 1.3 |
+| flies, writes nothing | **205.6 ± 2.0** |
+| flies, writes a lure where it ate | 17.8 ± 1.2 |
+| flies, writes a warning where it ate | 144.4 ± 1.8 |
+| flies, its 16-number state ignored | 207.5 ± 2.5 |
+
+When the world is 256× bigger than the eye, moving the reader wins by two orders of magnitude. All of it comes from the climb-and-dive rule; the NumberHell state adds nothing. Writing into the world hurt: lures trap the eye on its own memories, warnings push it away from springs that keep giving.
+
 ## Not
 
 - Not new mathematics (Rademacher/Walsh, Goldreich–Levin, Kushilevitz–Mansour; state-built matrices are what attention does).

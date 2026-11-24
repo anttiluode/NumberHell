@@ -1,0 +1,300 @@
+<title>Soar</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="A 16-number eye flying over a 64×64 world: it soars when the view is flat, dives when something sparkles, eats at ground level.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Night sky over a field. Gold = ground, cyan = altitude. */
+:root {
+  color-scheme: dark;
+  --bg: #07080d; --panel: #0e1119; --line: #1f2433; --ink: #e9ecf5; --muted: #8b93a8;
+  --gold: #ffc85a; --sky: #5fd4ff; --pink: #ff7ad1; --mark: #a58bff; --hot: #ff5a36;
+  --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --text: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 1rem/1.6 var(--text);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 1.6rem 4rem; }
+.page { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.6rem; }
+.page > *, .stage > * { min-width: 0; }
+h1 { font: 900 clamp(2.6rem, 9vw, 5rem)/0.92 var(--display); margin: 0; text-transform: uppercase; letter-spacing: 0.02em;
+  background: linear-gradient(90deg, var(--gold), var(--pink) 50%, var(--sky)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+h2 { font: 700 1.4rem/1.1 var(--display); text-transform: uppercase; letter-spacing: 0.04em; margin: 0; }
+p { margin: 0; max-width: 68ch; }
+.muted { color: var(--muted); }
+.label { font: 600 0.72rem/1.2 var(--mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 1rem; align-items: start; }
+@media (max-width: 760px) { .stage { grid-template-columns: minmax(0, 1fr); } }
+.sky { position: relative; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #05060a; }
+#world { display: block; width: 100%; aspect-ratio: 1 / 1; height: auto; }
+.side { display: grid; gap: 0.9rem; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 0.9rem; display: grid; gap: 0.6rem; }
+.row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+button { font: 600 0.8rem/1 var(--mono); color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 4px; padding: 0.5rem 0.65rem; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button[aria-pressed=true] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+input[type=range] { width: 100%; accent-color: var(--pink); }
+.big { font: 600 1.6rem/1.1 var(--mono); font-variant-numeric: tabular-nums; }
+.alt { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.6rem; font: 0.74rem var(--mono); color: var(--muted); }
+.alt div.on { color: var(--ink); }
+.alt span.bar { height: 10px; border-radius: 2px; align-self: center; background: #1a1f2c; }
+.alt span.bar.on { background: linear-gradient(90deg, var(--gold), var(--sky)); }
+#eye { width: 100%; aspect-ratio: 1 / 1; height: auto; display: block; max-width: 160px; }
+table { border-collapse: collapse; font: 0.84rem var(--mono); }
+td, th { padding: 0.35rem 1rem 0.35rem 0; text-align: right; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 400; } td:first-child, th:first-child { text-align: left; }
+.scroll { overflow-x: auto; }
+ul { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.4rem; max-width: 70ch; }
+footer { font: 0.76rem var(--mono); color: var(--muted); border-top: 1px solid var(--line); padding-top: 1rem; overflow-wrap: anywhere; }
+</style>
+
+<div class="page">
+<header style="display:grid;gap:0.8rem">
+  <div class="label">anttiluode / NumberHell · the head leaves the chessboard</div>
+  <h1>Soar</h1>
+  <p>An eye of 16 numbers flies over a world of 4,096 cells. It sees the world as a 4×4 picture at whatever height it is flying: from the sky one number covers 256 cells, at ground level one cell. Flat view: it climbs. Something sparkles: it dives toward it. At ground level it eats. Sparkles appear near three hidden springs that wander.</p>
+</header>
+
+<div class="stage">
+  <div class="sky"><canvas id="world" aria-label="The world seen from above: sparkles are food, the glowing square is what the eye sees, its trail shows where it flew"></canvas></div>
+  <div class="side">
+    <div class="panel">
+      <div class="label">The eye</div>
+      <div class="row"><button id="mFly" type="button" aria-pressed="true">flies</button><button id="mFix" type="button" aria-pressed="false">fixed wire</button><button id="mRnd" type="button" aria-pressed="false">random</button></div>
+      <div class="label">What it writes into the world when it eats</div>
+      <div class="row"><button id="k0" type="button" aria-pressed="true">nothing</button><button id="k1" type="button" aria-pressed="false">a lure</button><button id="k2" type="button" aria-pressed="false">a warning</button></div>
+      <label class="label" for="spd">speed</label><input id="spd" type="range" min="1" max="12" step="1" value="2">
+      <div class="row"><button id="springs" type="button" aria-pressed="false">show springs</button><button id="again" type="button">new world</button></div>
+    </div>
+    <div class="panel">
+      <div class="label">Food eaten per 1000 ticks</div>
+      <div class="big" id="rate">–</div>
+      <div class="muted mono" style="font:0.76rem var(--mono)" id="tot"></div>
+    </div>
+    <div class="panel">
+      <div class="label">Altitude</div>
+      <div class="alt" id="alt"></div>
+      <div class="label">What the eye sees</div>
+      <canvas id="eye" aria-label="The 4×4 view"></canvas>
+    </div>
+  </div>
+</div>
+
+<section style="display:grid;gap:0.8rem">
+  <h2>What was measured</h2>
+  <p>Same code, run headless: 12 worlds × 4,000 ticks each. About 250 sparkles appear per 1,000 ticks.</p>
+  <div class="scroll"><table>
+    <tr><th>eye</th><th>eaten / 1000 ticks</th></tr>
+    <tr><td>fixed wire (one ground-level window)</td><td>1.0 ± 0.2</td></tr>
+    <tr><td>random flight</td><td>27.3 ± 1.3</td></tr>
+    <tr><td>flies, writes nothing</td><td><b>205.6 ± 2.0</b></td></tr>
+    <tr><td>flies, writes a lure</td><td>17.8 ± 1.2</td></tr>
+    <tr><td>flies, writes a warning</td><td>144.4 ± 1.8</td></tr>
+    <tr><td>flies, its 16-number state ignored</td><td>207.5 ± 2.5</td></tr>
+  </table></div>
+  <ul>
+    <li><b>In a world 256 times bigger than the eye, the head wins.</b> This morning a fixed wire beat the head because brain and world were the same size. Here a fixed window catches about 1 in 250 sparkles; the flying eye catches over 80%.</li>
+    <li><b>All the skill is in the climb-and-dive rule.</b> The eye's 16 numbers run this morning's NumberHell rule (the world enters as gain), and ignoring them changes nothing.</li>
+    <li><b>Writing into the world hurt.</b> A lure left where food was found traps the eye: it keeps diving onto its own memories, and eats a tenth as much. A warning costs about 30%, because food really does come back near the springs. Memory in the world is only worth something if what it says stays true.</li>
+  </ul>
+</section>
+
+<section style="display:grid;gap:0.8rem">
+  <h2>The rule</h2>
+  <ul>
+    <li>Look: the 4×4 view at height L averages blocks of 2^L × 2^L cells (L = 0 ground … 4 the whole world).</li>
+    <li>Steer: move toward the brightest of the 16 view cells. If it stands well above the rest of the view, drop one level; if the view is flat, climb one.</li>
+    <li>Eat: at L = 0, sparkles inside the 4×4-cell window are eaten. Optionally the world keeps a mark there that later looks like food (lure) or like a hole (warning); marks fade.</li>
+  </ul>
+  <p class="muted">Not new: zooming in on contrast is coarse-to-fine search, and the climb-and-dive is close to how foveating vision models and quadtree searches work. It is a toy for watching an eye find things in a world far bigger than itself.</p>
+</section>
+
+<footer>Built by Claude (Opus 5.5) for anttiluode/NumberHell. Source of the simulation: sim/soar_core.js; the table comes from sim/soar_bench.js. Everything runs in your browser.</footer>
+</div>
+
+<script>
+/* Soar core: a 16-number head flying over a 64x64 world it can mark. */
+function makeWorld(opts) {
+  const o = Object.assign({ G: 64, springs: 3, spawn: 0.25, spread: 3, drift: 0.04, seed: 1,
+    eps: 0.5, gain: 1.0, mark: 1.0, markDecay: 0.997, mode: "fly" }, opts);
+  let s = o.seed >>> 0 || 1;
+  const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-12)) * Math.cos(2 * Math.PI * rnd());
+  const G = o.G, F = new Float32Array(G * G), M = new Float32Array(G * G);
+  const springs = [...Array(o.springs)].map(() => ({ x: rnd() * G, y: rnd() * G, vx: 0, vy: 0 }));
+  const food = [];
+  const head = { x: G / 2, y: G / 2, L: 4, h: new Float32Array(16).map(() => gauss()), view: new Float32Array(16), eaten: 0, trail: [] };
+  const wrap = (v) => ((v % G) + G) % G;
+  function field() {
+    F.fill(0);
+    for (const f of food) {
+      const r = 2;
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        const X = wrap(Math.round(f.x) + dx), Y = wrap(Math.round(f.y) + dy);
+        F[Y * G + X] += f.e * Math.exp(-(dx * dx + dy * dy) / 2);
+      }
+    }
+    if (o.mark) for (let k = 0; k < G * G; k++) F[k] += o.mark * M[k];
+  }
+  function look() {
+    const L = head.L, cell = 1 << L, span = 4 * cell, x0 = head.x - span / 2, y0 = head.y - span / 2;
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+      let sum = 0;
+      for (let yy = 0; yy < cell; yy++) for (let xx = 0; xx < cell; xx++) sum += F[wrap(Math.floor(y0 + r * cell + yy)) * G + wrap(Math.floor(x0 + c * cell + xx))];
+      head.view[r * 4 + c] = sum / (cell * cell);
+    }
+  }
+  function step() {
+    // world: springs wander, food appears near springs and slowly fades
+    for (const sp of springs) { sp.vx = 0.95 * sp.vx + o.drift * gauss(); sp.vy = 0.95 * sp.vy + o.drift * gauss(); sp.x = wrap(sp.x + sp.vx); sp.y = wrap(sp.y + sp.vy); }
+    if (rnd() < o.spawn) { const sp = springs[Math.floor(rnd() * springs.length)]; food.push({ x: wrap(sp.x + o.spread * gauss()), y: wrap(sp.y + o.spread * gauss()), e: 1, age: 0 }); }
+    for (const f of food) { f.e *= 0.995; f.age++; }
+    for (let k = food.length - 1; k >= 0; k--) if (food[k].e < 0.05) food.splice(k, 1);
+    for (let k = 0; k < G * G; k++) M[k] *= o.markDecay;
+    field();
+    const events = [];
+    if (o.mode === "fixed") { head.L = 0; look(); }
+    else {
+      look();
+      // the head's 16 numbers: world enters as gain (NumberHell rule), then RMS 1
+      const v = head.view; let vm = 0, vs = 0; for (const a of v) vm += a / 16; for (const a of v) vs += (a - vm) ** 2 / 16; vs = Math.sqrt(vs) || 1;
+      let hs = 0;
+      for (let k = 0; k < 16; k++) { const vn = (v[k] - vm) / vs; head.h[k] = (1 - o.eps) * head.h[k] + o.eps * Math.tanh(o.gain * head.h[k] * vn) + 0.02 * gauss(); hs += head.h[k] ** 2; }
+      hs = Math.sqrt(hs / 16) || 1; for (let k = 0; k < 16; k++) head.h[k] /= hs;
+      // attention: where the gain-weighted view is loudest
+      let best = 0, bv = -1e9; for (let k = 0; k < 16; k++) { const a = (o.useH === false ? 1 : Math.abs(head.h[k])) * (v[k] - vm); if (a > bv) { bv = a; best = k; } }
+      const contrast = (Math.max(...v) - vm) / (Math.abs(vm) + 0.05);
+      const cell = 1 << head.L;
+      if (o.mode === "random") { head.x = wrap(head.x + 3 * gauss()); head.y = wrap(head.y + 3 * gauss()); head.L = Math.max(0, Math.min(4, head.L + (rnd() < 0.5 ? -1 : 1))); }
+      else {
+        const tx = head.x + ((best % 4) - 1.5) * cell, ty = head.y + (Math.floor(best / 4) - 1.5) * cell;
+        head.x = wrap(head.x + 0.6 * (tx - head.x)); head.y = wrap(head.y + 0.6 * (ty - head.y));
+        if (contrast > 1.2 && bv > 0.02) head.L = Math.max(0, head.L - 1); else if (contrast < 0.6 || bv <= 0.02) head.L = Math.min(4, head.L + 1);
+      }
+    }
+    // eating: only at the finest zoom, inside the 4x4 window
+    if (head.L === 0) {
+      for (let k = food.length - 1; k >= 0; k--) {
+        const f = food[k], dx = ((f.x - head.x + G * 1.5) % G) - G / 2, dy = ((f.y - head.y + G * 1.5) % G) - G / 2;
+        if (Math.abs(dx) <= 2 && Math.abs(dy) <= 2) {
+          head.eaten += f.e; events.push({ x: f.x, y: f.y, e: f.e }); food.splice(k, 1);
+          // write back: the world keeps a mark where food was found
+          for (let yy = -3; yy <= 3; yy++) for (let xx = -3; xx <= 3; xx++) M[wrap(Math.round(f.y) + yy) * G + wrap(Math.round(f.x) + xx)] += 0.25 * Math.exp(-(xx * xx + yy * yy) / 6);
+        }
+      }
+    }
+    if (o.mode === "fixed") { head.x = G / 2; head.y = G / 2; }
+    head.trail.push([head.x, head.y, head.L]); if (head.trail.length > 60) head.trail.shift();
+    return events;
+  }
+  return { o, F, M, food, springs, head, step, G };
+}
+if (typeof module !== "undefined") module.exports = { makeWorld };
+
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const COL = { gold: css("--gold"), sky: css("--sky"), pink: css("--pink"), mark: css("--mark") };
+  const HUES = [COL.gold, COL.pink, COL.sky, "#ffffff"];
+  let opts = { mode: "fly", mark: 0 }, W, showSprings = false, ticks = 0, hist = [], particles = [], seed = 1;
+  function fresh() { seed = (seed * 48271) % 2147483647 || 7; W = makeWorld(Object.assign({ seed }, opts)); ticks = 0; hist = []; particles = []; }
+  function setPress(ids, on) { ids.forEach((id) => $(id).setAttribute("aria-pressed", id === on)); }
+  const modes = { mFly: "fly", mFix: "fixed", mRnd: "random" }, marks = { k0: 0, k1: 1, k2: -1 };
+  for (const id in modes) $(id).addEventListener("click", () => { opts.mode = modes[id]; setPress(Object.keys(modes), id); W.o.mode = opts.mode; hist = []; });
+  for (const id in marks) $(id).addEventListener("click", () => { opts.mark = marks[id]; setPress(Object.keys(marks), id); W.o.mark = opts.mark; hist = []; });
+  $("springs").addEventListener("click", () => { showSprings = !showSprings; $("springs").setAttribute("aria-pressed", showSprings); });
+  $("again").addEventListener("click", fresh);
+
+  const cv = $("world"), eye = $("eye"), haze = document.createElement("canvas"); haze.width = haze.height = 64;
+  const hctx = haze.getContext("2d"), himg = hctx.createImageData(64, 64);
+  function fit(c) { const w = c.clientWidth, d = Math.min(window.devicePixelRatio || 1, 1100 / Math.max(w, 1)); const px = Math.round(w * d); if (c.width !== px) { c.width = px; c.height = px; } const g = c.getContext("2d"); g.setTransform(d, 0, 0, d, 0, 0); return [g, w]; }
+  const sprites = [];
+  function sprite(k) {
+    if (sprites[k]) return sprites[k];
+    const c = document.createElement("canvas"); c.width = c.height = 64; const x = c.getContext("2d"), col = HUES[k];
+    const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, "#ffffff"); gr.addColorStop(0.12, col); gr.addColorStop(0.35, col + "55"); gr.addColorStop(1, "transparent");
+    x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+    x.strokeStyle = col; x.globalAlpha = 0.7; x.lineWidth = 1.5; x.beginPath(); x.moveTo(4, 32); x.lineTo(60, 32); x.moveTo(32, 4); x.lineTo(32, 60); x.stroke();
+    return (sprites[k] = c);
+  }
+  function torusDraw(cx, cy, size, fn) { for (const ox of [-1, 0, 1]) for (const oy of [-1, 0, 1]) { const x = cx + ox * size, y = cy + oy * size; fn(x, y); } }
+
+  function draw(t) {
+    const [g, S] = fit(cv), G = W.G, s = S / G;
+    g.globalCompositeOperation = "source-over";
+    const bg = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S * 0.75); bg.addColorStop(0, "#0b0e18"); bg.addColorStop(1, "#04050a");
+    g.fillStyle = bg; g.fillRect(0, 0, S, S);
+    // faint chessboard of the eye's current block size
+    const cell = 1 << W.head.L;
+    g.fillStyle = "rgba(255,255,255,0.018)";
+    for (let y = 0; y < G; y += cell) for (let x = 0; x < G; x += cell) if (((x + y) / cell) % 2 === 0) g.fillRect(x * s, y * s, cell * s, cell * s);
+    // marks the eye wrote into the world
+    if (W.o.mark) {
+      let mx = 0; for (const v of W.M) mx = Math.max(mx, v);
+      const [r, gg, b] = W.o.mark > 0 ? [255, 200, 90] : [165, 139, 255];
+      for (let k = 0; k < G * G; k++) { const a = mx ? W.M[k] / mx : 0; himg.data[4 * k] = r; himg.data[4 * k + 1] = gg; himg.data[4 * k + 2] = b; himg.data[4 * k + 3] = Math.round(110 * a); }
+      hctx.putImageData(himg, 0, 0); g.imageSmoothingEnabled = true; g.drawImage(haze, 0, 0, S, S);
+    }
+    g.globalCompositeOperation = "lighter";
+    // food: twinkling stars, drawn from pre-rendered sprites
+    for (const f of W.food) {
+      if (f.hue === undefined) f.hue = (Math.random() * HUES.length) | 0, f.ph = Math.random() * 6.28;
+      const tw = 0.65 + 0.35 * Math.sin(t / 180 + f.ph), r = s * (0.9 + 1.6 * f.e) * tw * 2.4;
+      g.globalAlpha = Math.min(1, 0.35 + f.e);
+      g.drawImage(sprite(f.hue), f.x * s - r, f.y * s - r, 2 * r, 2 * r);
+    }
+    g.globalAlpha = 1;
+    if (showSprings) for (const sp of W.springs) { g.strokeStyle = "rgba(255,255,255,0.35)"; g.setLineDash([3, 4]); g.beginPath(); g.arc(sp.x * s, sp.y * s, 3 * W.o.spread * s, 0, 7); g.stroke(); g.setLineDash([]); }
+    // trail: gold near the ground, cyan high up
+    const tr = W.head.trail;
+    for (let k = 1; k < tr.length; k++) {
+      const [x0, y0] = tr[k - 1], [x1, y1, L] = tr[k];
+      if (Math.abs(x1 - x0) > G / 2 || Math.abs(y1 - y0) > G / 2) continue;
+      g.strokeStyle = L <= 1 ? COL.gold : L >= 3 ? COL.sky : COL.pink; g.globalAlpha = (k / tr.length) * 0.8; g.lineWidth = 1 + L * 0.8;
+      g.beginPath(); g.moveTo(x0 * s, y0 * s); g.lineTo(x1 * s, y1 * s); g.stroke();
+    }
+    g.globalAlpha = 1;
+    // the eye's window
+    const span = 4 * cell * s, hx = W.head.x * s, hy = W.head.y * s, col = W.head.L === 0 ? COL.gold : W.head.L >= 3 ? COL.sky : COL.pink;
+    torusDraw(hx, hy, S, (x, y) => {
+      g.strokeStyle = col; g.lineWidth = 2; g.shadowColor = col; g.shadowBlur = 14;
+      g.strokeRect(x - span / 2, y - span / 2, span, span); g.shadowBlur = 0;
+      g.globalAlpha = 0.35; g.lineWidth = 1;
+      for (let q = 1; q < 4; q++) { g.beginPath(); g.moveTo(x - span / 2 + q * span / 4, y - span / 2); g.lineTo(x - span / 2 + q * span / 4, y + span / 2); g.moveTo(x - span / 2, y - span / 2 + q * span / 4); g.lineTo(x + span / 2, y - span / 2 + q * span / 4); g.stroke(); }
+      g.globalAlpha = 1;
+    });
+    // sparks
+    for (const p of particles) {
+      p.x += p.vx; p.y += p.vy; p.vx *= 0.95; p.vy *= 0.95; p.life--;
+      g.fillStyle = p.c; g.globalAlpha = Math.max(0, p.life / 45); g.beginPath(); g.arc(p.x, p.y, 1.2 + 2 * (p.life / 45), 0, 7); g.fill();
+    }
+    g.globalAlpha = 1; particles = particles.filter((p) => p.life > 0);
+    // the 4×4 view
+    const [e, E] = fit(eye), v = W.head.view; let lo = Infinity, hi = -Infinity; for (const a of v) { lo = Math.min(lo, a); hi = Math.max(hi, a); }
+    e.clearRect(0, 0, E, E);
+    for (let k = 0; k < 16; k++) { const a = hi > lo ? (v[k] - lo) / (hi - lo) : 0; e.fillStyle = `rgba(${Math.round(90 + 165 * a)},${Math.round(110 + 90 * a)},${Math.round(200 - 110 * a)},${0.15 + 0.85 * a})`; e.fillRect((k % 4) * E / 4 + 1, Math.floor(k / 4) * E / 4 + 1, E / 4 - 2, E / 4 - 2); }
+  }
+  function ui() {
+    const names = ["ground · 1×1", "2×2", "4×4", "8×8", "sky · 16×16"];
+    $("alt").innerHTML = [4, 3, 2, 1, 0].map((L) => `<div class="${W.head.L === L ? "on" : ""}">${names[L]}</div><span class="bar ${W.head.L === L ? "on" : ""}"></span>`).join("");
+    const win = hist.slice(-1000), eaten = win.reduce((a, b) => a + b, 0);
+    $("rate").textContent = win.length >= 200 ? (eaten / win.length * 1000).toFixed(0) : "…";
+    $("tot").textContent = `tick ${ticks} · each number of the eye covers ${(1 << W.head.L) ** 2} cell${W.head.L ? "s" : ""}`;
+  }
+  let lastUi = 0;
+  function frame(t) {
+    const S = cv.clientWidth, sc = S / W.G, n = +$("spd").value;
+    for (let k = 0; k < n; k++) {
+      const ev = W.step(); ticks++; let got = 0;
+      for (const e of ev) { got += e.e; for (let q = 0; q < 16; q++) { const a = Math.random() * 6.283, sp = 1 + Math.random() * 3.5; particles.push({ x: e.x * sc, y: e.y * sc, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 30 + (Math.random() * 15) | 0, c: HUES[(Math.random() * HUES.length) | 0] }); } }
+      hist.push(got); if (hist.length > 1000) hist.shift();
+    }
+    draw(t); if (t - lastUi > 200) { ui(); lastUi = t; }
+    requestAnimationFrame(frame);
+  }
+  fresh(); requestAnimationFrame(frame);
+})();
+</script>
