@@ -38,16 +38,17 @@ So x_next = W(x)·x: the vector chooses the address it reads, and what it reads 
 
 `x[i]·x[i XOR a]` takes the same value at i and at i XOR a, so the nonlinear drive is always symmetric under the pairing: the 128 patterns k with popcount(k AND a) odd get no drive and only decay. That includes the board a itself whenever it has an odd number of 1-bits (every single chessboard does), so reading such a board starves it. Closed, the loop can only crystallise toward symmetric patterns.
 
-Test: indices 128–255 are a world the rule cannot write (a slowly drifting random signal); indices 0–127 are the brain, updated by the same rule, with the pairing forced across the boundary (bit 7 of a set). 20 runs × 600 ticks, second half measured:
+Test: indices 128–255 are a world the rule cannot write (a slowly drifting random signal); indices 0–127 are the brain, updated by the same rule, with the pairing forced across the boundary (bit 7 of a set). 20 runs × 600 ticks, second half measured. Three ways to pick the rest of the address:
 
-| correlation | value |
-|---|---:|
-| brain value vs its world partner | ≈ 0.0 |
-| brain loudness \|b\| vs its world partner, current address | +0.68 |
-| same, partner under the previous address (ticks where it changed) | +0.40 |
-| same, random crossing address | 0.00 |
+| address | changes per tick | signed corr(b, partner w) | corr(\|b\|, partner w) | partner under previous address | random partner |
+|---|---:|---:|---:|---:|---:|
+| head reads brain and world (`peek`) | 0.19 | +0.02 | +0.68 | +0.40 | 0.00 |
+| head reads brain only (`blind`) | 0.35 | +0.00 | +0.54 | +0.31 | 0.00 |
+| no head, a = 128 forever (`fixed`) | 0 | 0.00 | **+0.78** | – | –0.01 |
 
-The brain does not copy the world and does not invert it. Its loudness becomes a half-wave image of the world: tanh(g·b·w) amplifies b where the partner w is positive and drives it to zero where w is negative. The image is addressed by the board the head picked and partly outlasts an address change. It is a one-sided gate, not a predictive or inverse model.
+- The brain's signs carry nothing about the world: the update is odd in b, so a cell keeps whatever sign it had. Its loudness carries the positive half of the world: for small b the world partner sets the cell's gain, 1 − ε + ε·g·w, so cells paired with positive w grow and the rest fade.
+- **The head does not help here.** A fixed wire gives the clearest image; letting the head move the wiring blurs it, and a blind head blurs it more. The "previous address" numbers are mostly the (1 − ε) fade of last tick's image.
+- The world is a one-way tape: the brain cannot push on it and feel it push back. This is a multiplicative gate, not a predictive or inverse model. (Earlier version of this section, corrected after Sol and Neon pointed out the peeking head and the missing fixed-wire control.)
 
 ## Not
 
